@@ -192,11 +192,11 @@ class MergeGameViewModel(val context: Context, val sharedPref: SharedPreferences
                 if (index != -1) {
                     val quest = activeSideQuests[index]
                     // Eğer bina seviyesi görev seviyesinden büyükse (Örn: Bina 3, Görev 1)
-                    // Görevi tamamlanmış (current = target) olarak göster.
+                    // Görevi tamamlanmış (current = target) olarak göster ki ödül alınabilsin.
                     if (quest.level < building.level) {
                         activeSideQuests[index] = quest.copy(currentCount = quest.targetCount)
                     } else if (quest.level == building.level) {
-                        // Eğer aynı seviyedelerse gerçek ilerlemeyi (yıldız sayısını) yaz
+                        // Aynı seviyedelerse gerçek ilerlemeyi yaz
                         activeSideQuests[index] = quest.copy(currentCount = building.level)
                     }
                 } else {
@@ -284,14 +284,14 @@ class MergeGameViewModel(val context: Context, val sharedPref: SharedPreferences
                     if (p.size >= 9) {
                         SideQuest(
                             id = p[0].toInt(),
-                            level = p[1].toInt(),
-                            currentCount = p[2].toInt(),
+                            title = p[1],
+                            description = p[2],
                             targetCount = p[3].toInt(),
-                            rewardMoney = p[4].toInt(),
-                            rewardDiamonds = p[5].toInt(),
-                            type = p[6],
-                            title = p[7],
-                            description = p[8]
+                            currentCount = p[4].toInt(),
+                            rewardMoney = p[5].toInt(),
+                            rewardDiamonds = p[6].toInt(),
+                            type = p[7],
+                            level = p[8].toInt()
                         )
                     } else null
                 }
@@ -538,9 +538,11 @@ class MergeGameViewModel(val context: Context, val sharedPref: SharedPreferences
 
 
         // 2. Yan Görevleri de AYNI editor içine ekle (Ayrı fonksiyon çağırma)
-        val questData = activeSideQuests.joinToString(";") { quest ->
-            "${quest.id}|${quest.level}|${quest.currentCount}|${quest.targetCount}|${quest.rewardMoney}|${quest.rewardDiamonds}|${quest.type}|${quest.title}|${quest.description}"
+        val questData = activeSideQuests.joinToString(";") { q ->
+            "${q.id}|${q.title}|${q.description}|${q.targetCount}|${q.currentCount}|${q.rewardMoney}|${q.rewardDiamonds}|${q.type}|${q.level}"
         }
+
+
         e.putString("side_quests_v_final", questData)
 
         val tasksData = dailyTasks.joinToString("|") { "${it.id}:${it.currentCount}:${it.isClaimed}" }
