@@ -153,7 +153,21 @@ fun MergeGameScreen(onBackToMenu: () -> Unit) {
             // Alt Menü
             Column(modifier = Modifier.fillMaxWidth()) {
                 if (vm.isStorageOpen) StoragePanel(vm.isStorageOpen, vm.storageItems, vm.storageCapacity, vm.money, { if (vm.money >= 500 && vm.storageCapacity < 10) { vm.money -= 500; vm.storageCapacity++; vm.save() } }, { idx, item -> vm.gridItems.indexOfFirst { it == null }.takeIf { it != -1 }?.let { vm.gridItems[it] = item; vm.storageItems.removeAt(idx); vm.save() } }, { vm.storageBoundsRoot = it })
-                GameBottomMenu(vm.isStorageOpen, vm.hammerCount, vm.magnetCount, vm.clockCount, { if (vm.hammerCount > 0) isHammerActive = !isHammerActive else Toast.makeText(context, "Balyozun yok!", Toast.LENGTH_SHORT).show() }, { if (vm.magnetCount > 0) { vm.useMagnet(); Toast.makeText(context, "Mıknatıs Kullanıldı!", Toast.LENGTH_SHORT).show() } }, { if (vm.clockCount > 0) { vm.useClock(); Toast.makeText(context, "Tüm süreler sıfırlandı!", Toast.LENGTH_SHORT).show() } }, onBackToMenu, { vm.isStorageOpen = !vm.isStorageOpen; vm.isShopOpen = false; vm.isTasksOpen = false; vm.isMapOpen = false }, { vm.isTasksOpen = !vm.isTasksOpen; vm.isStorageOpen = false; vm.isShopOpen = false; vm.isMapOpen = false }, { vm.isMapOpen = !vm.isMapOpen; vm.isTasksOpen = false; vm.isStorageOpen = false; vm.isShopOpen = false }, { vm.isShopOpen = !vm.isShopOpen; vm.isStorageOpen = false; vm.isTasksOpen = false; vm.isMapOpen = false })
+                GameBottomMenu(
+                    vm.isStorageOpen,
+                    vm.hammerCount,
+                    vm.magnetCount,
+                    vm.clockCount,
+                    { if (vm.hammerCount > 0) isHammerActive = !isHammerActive else Toast.makeText(context, "Balyozun yok!", Toast.LENGTH_SHORT).show() },
+                    { if (vm.magnetCount > 0) { vm.useMagnet(); Toast.makeText(context, "Mıknatıs Kullanıldı!", Toast.LENGTH_SHORT).show() } },
+                    { if (vm.clockCount > 0) { vm.useClock(); Toast.makeText(context, "Tüm süreler sıfırlandı!", Toast.LENGTH_SHORT).show() } },
+                    onBackToMenu,
+                    { vm.isStorageOpen = !vm.isStorageOpen; vm.isShopOpen = false; vm.isTasksOpen = false; vm.isMapOpen = false; vm.isSideQuestsOpen = false },
+                    { vm.isTasksOpen = !vm.isTasksOpen; vm.isStorageOpen = false; vm.isShopOpen = false; vm.isMapOpen = false; vm.isSideQuestsOpen = false },
+                    { vm.isSideQuestsOpen = !vm.isSideQuestsOpen; vm.isTasksOpen = false; vm.isStorageOpen = false; vm.isShopOpen = false; vm.isMapOpen = false }, // YENİ EKLENEN YAN GÖREV PARAMETRESİ
+                    { vm.isMapOpen = !vm.isMapOpen; vm.isTasksOpen = false; vm.isStorageOpen = false; vm.isShopOpen = false; vm.isSideQuestsOpen = false },
+                    { vm.isShopOpen = !vm.isShopOpen; vm.isStorageOpen = false; vm.isTasksOpen = false; vm.isMapOpen = false; vm.isSideQuestsOpen = false }
+                )
             }
         }
 
@@ -161,6 +175,16 @@ fun MergeGameScreen(onBackToMenu: () -> Unit) {
 
         if (vm.isMapOpen) {
             WorldMap(regions = vm.regions, diamonds = vm.diamonds, onUnlock = { vm.unlockRegion(it) }, onRegionClick = { region -> if (region.isUnlocked) { vm.selectedRegionForBuilding = region; vm.isMapOpen = false } else { vm.unlockedRegionReward = region } }, onClose = { vm.isMapOpen = false })
+        }
+
+        if (vm.isSideQuestsOpen) {
+            Dialog(onDismissRequest = { vm.isSideQuestsOpen = false }) {
+                SideQuestsPanel(
+                    quests = vm.activeSideQuests,
+                    onClaim = { vm.claimSideQuest(it) },
+                    onClose = { vm.isSideQuestsOpen = false }
+                )
+            }
         }
 
         vm.unlockedRegionReward?.let { RegionUnlockAnimation(it) { vm.unlockedRegionReward = null } }

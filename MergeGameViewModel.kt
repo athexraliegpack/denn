@@ -10,6 +10,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch // BU EKSİKTİ: Coroutine başlatmak için şart
 import java.text.SimpleDateFormat; import java.util.*
 import kotlin.random.Random
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateListOf
 
 data class BubbleItem(val item: MergeItem, val index: Int, var timeLeft: Int = 30)
 data class MarketItem(
@@ -19,6 +23,26 @@ data class MarketItem(
     val price: Int,
     val category: String
 )
+
+data class SideQuest(
+    val id: Int,
+    val title: String,
+    val description: String,
+    val targetCount: Int,
+    var currentCount: Int,
+    val rewardMoney: Int = 0,
+    val rewardDiamonds: Int = 0,
+    val type: String // "merge", "order", "spend_energy" vb.
+)
+
+// Yan Görevler State'leri
+var isSideQuestsOpen by mutableStateOf(false)
+var activeSideQuests = mutableStateListOf<SideQuest>(
+    SideQuest(1, "Hızlı Birleştirici", "10 kez eşleştirme yap", 10, 0, 100, 2, "merge"),
+    SideQuest(2, "Müşteri Memnuniyeti", "3 sipariş tamamla", 3, 0, 250, 5, "order")
+)
+
+
 
 enum class TaskType { MERGE, GENERATE, CANCEL_ORDER, COMPLETE_ORDER, SPIN_WHEEL, FEED_PET, COLLECT_DIAMOND, USE_HAMMER, USE_MAGNET, UPGRADE_BUILDING, OPEN_CHEST }
 data class DailyTask(
@@ -161,6 +185,24 @@ class MergeGameViewModel(val context: Context, val sharedPref: SharedPreferences
         )
 
     }
+
+    // Ödül Alma Fonksiyonu
+    fun claimSideQuest(quest: SideQuest) {
+        money += quest.rewardMoney
+        diamonds += quest.rewardDiamonds
+        activeSideQuests.remove(quest)
+        // İstersen buraya yeni bir görev ekleme mantığı da koyabilirsin
+    }
+
+    // Görev İlerleme Fonksiyonu (Bunu mevcut merge veya sipariş fonksiyonlarının içine ekleyeceğiz)
+    fun updateQuestProgress(type: String, amount: Int) {
+        activeSideQuests.forEach { quest ->
+            if (quest.type == type && quest.currentCount < quest.targetCount) {
+                quest.currentCount += amount
+            }
+        }
+    }
+
 
     private fun initRegions() {
         regions.clear()

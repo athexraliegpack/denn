@@ -278,14 +278,28 @@ fun MergeGrid(gridItems: Array<MergeItem?>, isHammerActive: Boolean, draggingInd
 }
 
 @Composable
-fun GameBottomMenu(isStorageOpen: Boolean, hammerCount: Int, magnetCount: Int, clockCount: Int, onHammerClick: () -> Unit, onMagnetClick: () -> Unit, onClockClick: () -> Unit, onMenuClick: () -> Unit, onStorageClick: () -> Unit, onTasksClick: () -> Unit, onMapClick: () -> Unit, onShopClick: () -> Unit) {
+fun GameBottomMenu(
+    isStorageOpen: Boolean,
+    hammerCount: Int,
+    magnetCount: Int,
+    clockCount: Int,
+    onHammerClick: () -> Unit,
+    onMagnetClick: () -> Unit,
+    onClockClick: () -> Unit,
+    onMenuClick: () -> Unit,
+    onStorageClick: () -> Unit,
+    onTasksClick: () -> Unit,
+    onSideQuestsClick: () -> Unit,
+    onMapClick: () -> Unit,
+    onShopClick: () -> Unit
+) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) { BoosterItem("🔨", hammerCount, onHammerClick); BoosterItem("🧲", magnetCount, onMagnetClick); BoosterItem("⏰", clockCount, onClockClick) }
         Surface(modifier = Modifier
             .fillMaxWidth()
-            .height(75.dp), shadowElevation = 12.dp, color = Color.White) { Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) { IconButton(onClick = onMenuClick) { Text("🏠", fontSize = 26.sp) }; IconButton(onClick = onStorageClick) { Text(if (isStorageOpen) "📂" else "📦", fontSize = 26.sp) }; IconButton(onClick = onTasksClick) { Text("🎯", fontSize = 26.sp) }; IconButton(onClick = onMapClick) { Text("🗺️", fontSize = 26.sp) }; IconButton(onClick = onShopClick) { Text("🛒", fontSize = 26.sp) } } }
+            .height(75.dp), shadowElevation = 12.dp, color = Color.White) { Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) { IconButton(onClick = onMenuClick) { Text("🏠", fontSize = 26.sp) }; IconButton(onClick = onStorageClick) { Text(if (isStorageOpen) "📂" else "📦", fontSize = 26.sp) }; IconButton(onClick = onTasksClick) { Text("🎯", fontSize = 26.sp) }; IconButton(onClick = onSideQuestsClick) { Text("📜", fontSize = 26.sp) }; IconButton(onClick = onMapClick) { Text("🗺️", fontSize = 26.sp) }; IconButton(onClick = onShopClick) { Text("🛒", fontSize = 26.sp) } } }
     }
 }
 
@@ -822,6 +836,44 @@ fun PetLevelUpAnimation(reward: PetLevelReward, onDismiss: () -> Unit) {
                 Text("Hediye: ${reward.instantGift}", fontWeight = FontWeight.Bold, color = Color.Magenta)
                 Spacer(modifier = Modifier.height(20.dp))
                 Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("HARİKA!") }
+            }
+        }
+    }
+}
+
+@Composable
+fun SideQuestsPanel(
+    quests: List<SideQuest>,
+    onClaim: (SideQuest) -> Unit,
+    onClose: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(0.95f).fillMaxHeight(0.7f),
+        shape = RoundedCornerShape(24.dp),
+        color = Color.White
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Yan Görevler 📜", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                IconButton(onClick = onClose) { Text("✕", fontSize = 20.sp) }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(quests) { quest ->
+                    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA))) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(quest.title, fontWeight = FontWeight.Bold)
+                            Text(quest.description, fontSize = 12.sp, color = Color.Gray)
+                            val progress = (quest.currentCount.toFloat() / quest.targetCount.toFloat()).coerceIn(0f, 1f)
+                            LinearProgressIndicator(progress = progress, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp))
+                            if (quest.currentCount >= quest.targetCount) {
+                                Button(onClick = { onClaim(quest) }, modifier = Modifier.fillMaxWidth()) {
+                                    Text("Ödülü Al (💰${quest.rewardMoney})")
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
