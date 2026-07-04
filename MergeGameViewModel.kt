@@ -255,19 +255,19 @@ class MergeGameViewModel(val context: Context, val sharedPref: SharedPreferences
             val nextQuestInPool = sideQuestPool.find { it.type == quest.type && it.level == quest.level + 1 }
 
             if (nextQuestInPool != null) {
-                // ÖNEMLİ: Yeni göreve geçerken ilerlemeyi (currentCount) sıfırlama!
-                // Binanın gerçek seviyesini koru.
-                activeSideQuests[indexInActive] = nextQuestInPool.copy(
-                    currentCount = quest.currentCount
-                )
+                // Yeni göreve geçiyoruz
+                val buildingId = quest.type.replace("upgrade_", "").toIntOrNull()
+                val buildingLevel = regions.flatMap { it.buildings }.find { it.id == buildingId }?.level ?: 0
+
+                // Eğer binanın seviyesi yeni görevin seviyesinden hala büyükse, onu da tamamla
+                val newProgress = if (buildingLevel >= nextQuestInPool.level) nextQuestInPool.targetCount else buildingLevel
+
+                activeSideQuests[indexInActive] = nextQuestInPool.copy(currentCount = newProgress)
             } else {
                 activeSideQuests.removeAt(indexInActive)
             }
         }
-
-        // Önce yan görevleri kaydet, sonra genel save yap
-
-        save()
+        save() // Her şeyi tek seferde kaydet
     }
 
 
