@@ -248,6 +248,17 @@ fun MergeGameScreen(onBackToMenu: () -> Unit) {
             TownBuildingScreen(region = region, playerMoney = vm.money, onUpgrade = { vm.upgradeBuilding(it) }, onClose = { vm.selectedRegionForBuilding = null })
         }
 
+        // YAN GÖREV ÖDÜL ANİMASYONU
+        if (vm.showSideQuestReward) {
+            SideQuestRewardAnimation(
+                reward = vm.currentSideQuestReward,
+                onDismiss = {
+                    vm.showSideQuestReward = false
+                    vm.currentSideQuestReward = null
+                }
+            )
+        }
+
         // EN ÜST KATMAN: SANDIK AÇILMA ANİMASYONU
         DailyChestAnimation(
             showDailyBonus = vm.showDailyBonus,      // Ödül hazır mı?
@@ -366,5 +377,68 @@ fun RewardItem(text: String, delayTime: Int) {
             color = Color.White,
             fontWeight = FontWeight.Bold
         )
+    }
+}
+
+@Composable
+fun SideQuestRewardAnimation(
+    reward: ChestReward?,
+    onDismiss: () -> Unit
+) {
+    if (reward == null) return
+
+    val infiniteTransition = rememberInfiniteTransition(label = "")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 0.95f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ), label = ""
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.8f))
+            .zIndex(300f) // En üstte görünmesi için
+            .clickable { onDismiss() }, // Ekrana tıklandığında kapanır
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "GÖREV TAMAMLANDI!",
+                color = Color(0xFFF1C40F),
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Black,
+                modifier = Modifier.graphicsLayer(scaleX = scale, scaleY = scale)
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Parlama Efekti ve İkon
+            Box(contentAlignment = Alignment.Center) {
+                Text("🌟", fontSize = 120.sp, modifier = Modifier.graphicsLayer(alpha = 0.4f, scaleX = scale * 1.5f))
+                Text("📜", fontSize = 90.sp) // Görev parşömeni ikonu
+            }
+
+            Spacer(modifier = Modifier.height(30.dp))
+
+            // DİNAMİK ÖDÜLLER: Sadece değeri 0'dan büyük olanlar görünür
+            Row(horizontalArrangement = Arrangement.spacedBy(15.dp)) {
+                if (reward.money > 0) RewardItem("${reward.money} 💰", delayTime = 100)
+                if (reward.diamonds > 0) RewardItem("${reward.diamonds} 💎", delayTime = 300)
+                if (reward.energy > 0) RewardItem("${reward.energy} ⚡", delayTime = 500)
+            }
+
+            Spacer(modifier = Modifier.height(40.dp))
+
+            Text(
+                text = "Devam etmek için dokun",
+                color = Color.White.copy(alpha = 0.7f),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
     }
 }

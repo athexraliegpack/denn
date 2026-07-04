@@ -32,15 +32,10 @@ data class SideQuest(
     var currentCount: Int,
     val rewardMoney: Int = 0,
     val rewardDiamonds: Int = 0,
-    val type: String // "merge", "order", "spend_energy" vb.
+    val type: String, // "merge", "order", "spend_energy" vb.
+    var level: Int = 1
 )
 
-// Yan Görevler State'leri
-var isSideQuestsOpen by mutableStateOf(false)
-var activeSideQuests = mutableStateListOf<SideQuest>(
-    SideQuest(1, "Hızlı Birleştirici", "10 kez eşleştirme yap", 10, 0, 100, 2, "merge"),
-    SideQuest(2, "Müşteri Memnuniyeti", "3 sipariş tamamla", 3, 0, 250, 5, "order")
-)
 
 
 
@@ -123,14 +118,54 @@ class MergeGameViewModel(val context: Context, val sharedPref: SharedPreferences
 
     var showChestAnimation by mutableStateOf(false) // Animasyon tetikleyici
 
-    init {
+    var showSideQuestReward by mutableStateOf(false)
+    var currentSideQuestReward by mutableStateOf<ChestReward?>(null)
 
-        initRegions()        // 1. Önce bölgeleri ve binaları (Lvl 0 olarak) oluştur
-        loadGame()           // 2. Sonra hafızadaki seviyeleri binaların üzerine yaz
+    // Yan Görevler State'leri
+    var isSideQuestsOpen by mutableStateOf(false)
+    var activeSideQuests = mutableStateListOf<SideQuest>(
+        SideQuest(1, "Hızlı Birleştirici", "10 kez eşleştirme yap", 10, 0, 100, 2, "merge", 1),
+        SideQuest(2, "İnşaatçı", "Bahçe Kulübesini 1. Yıldız yap", 1, 0, 500, 10, "upgrade_101", 1)
+    )
+
+    // ViewModel'in en üstüne veya uygun bir yere ekle
+    private val sideQuestPool = listOf(
+        // BİRLEŞTİRME GÖREVLERİ (Merge)
+        SideQuest(1, "Hızlı Birleştirici I", "10 kez eşleştirme yap", 10, 0, 100, 2, "merge", 1),
+        SideQuest(2, "Hızlı Birleştirici II", "25 kez eşleştirme yap", 25, 0, 250, 5, "merge", 2),
+        SideQuest(3, "Hızlı Birleştirici III", "50 kez eşleştirme yap", 50, 0, 500, 10, "merge", 3),
+
+        // BİNA GELİŞTİRME GÖREVLERİ (Upgrade - ID: 101 Bahçe Kulübesi)
+        SideQuest(101, "Bahçe Hazırlığı", "Bahçe Kulübesini 1 Yıldız yap", 1, 0, 100, 1, "upgrade_101", 1),
+        SideQuest(102, "Bahçe Çırağı", "Bahçe Kulübesini 2 Yıldız yap", 2, 0, 200, 2, "upgrade_101", 2),
+        SideQuest(103, "Bahçe Ustası", "Bahçe Kulübesini 3 Yıldız yap", 3, 0, 300, 3, "upgrade_101", 3),
+        SideQuest(104, "Bahçe Mimarı", "Bahçe Kulübesini 4 Yıldız yap", 4, 0, 400, 4, "upgrade_101", 4),
+        SideQuest(105, "Bahçe Kralı", "Bahçe Kulübesini 5 Yıldız yap", 5, 0, 500, 5, "upgrade_101", 5),
+
+        // BİNA GELİŞTİRME GÖREVLERİ (Upgrade - ID: 201 Bahçe Kulübesi)
+        SideQuest(201, "Çiçek Tarhı", "Çiçek Tarhı 1 Yıldız yap", 1, 0, 100, 1, "upgrade_102", 1),
+        SideQuest(202, "Çiçek Çırağı", "Çiçek Tarhı 2 Yıldız yap", 2, 0, 200, 2, "upgrade_102", 2),
+        SideQuest(203, "Çiçek Ustası", "Çiçek Tarhı 3 Yıldız yap", 3, 0, 300, 3, "upgrade_102", 3),
+        SideQuest(204, "Çiçek Mimarı", "Çiçek Tarhı 4 Yıldız yap", 4, 0, 400, 4, "upgrade_102", 4),
+        SideQuest(205, "Çiçek Kralı", "Çiçek Tarhı 5 Yıldız yap", 5, 0, 500, 5, "upgrade_102", 5)
+    )
+
+
+
+    init {
+        initRegions()
+
+        // 2. SONRA hafızadaki gerçek seviyeleri (Lvl 3, 5 vs.) binaların üzerine yaz
+        loadGame()
+
+        // 3. Yan görev listesini yükle
+        loadSideQuests()
+// 4. KRİTİK: Binaların gerçek seviyelerini yan görevlere aktar (Eksik olan buydu)
+        syncQuestsWithBuildings()
 
         // Diğer kontroller
        // checkDailyReset()
-        checkDailyBonus()
+        // checkDailyBonus() //burayı en son tekrar aç loadgamede var
         restoreMissingGenerators()
 
 
@@ -148,7 +183,29 @@ class MergeGameViewModel(val context: Context, val sharedPref: SharedPreferences
 
     }
 
+    fun syncQuestsWithBuildings() {
+        regions.forEach { region ->
+            region.buildings.forEach { building ->
+                val type = "upgrade_${building.id}"
+                val index = activeSideQuests.indexOfFirst { it.type == type }
 
+                if (index != -1) {
+                    val quest = activeSideQuests[index]
+                    // Eğer bina seviyesi görev seviyesinden büyükse (Örn: Bina 3, Görev 1)
+                    // Görevi tamamlanmış (current = target) olarak göster.
+                    if (quest.level < building.level) {
+                        activeSideQuests[index] = quest.copy(currentCount = quest.targetCount)
+                    } else if (quest.level == building.level) {
+                        // Eğer aynı seviyedelerse gerçek ilerlemeyi (yıldız sayısını) yaz
+                        activeSideQuests[index] = quest.copy(currentCount = building.level)
+                    }
+                } else {
+                    // Görev listede yoksa (Örn: Çiçek Tarhı yeni açıldıysa) ekle
+                    updateQuestProgress(type, building.level)
+                }
+            }
+        }
+    }
 
 
     // Sadece zaman değiştiğinde rastgele 5 tane seçer
@@ -190,17 +247,103 @@ class MergeGameViewModel(val context: Context, val sharedPref: SharedPreferences
     fun claimSideQuest(quest: SideQuest) {
         money += quest.rewardMoney
         diamonds += quest.rewardDiamonds
-        activeSideQuests.remove(quest)
-        // İstersen buraya yeni bir görev ekleme mantığı da koyabilirsin
-    }
+        currentSideQuestReward = ChestReward(money = quest.rewardMoney, diamonds = quest.rewardDiamonds)
+        showSideQuestReward = true
 
-    // Görev İlerleme Fonksiyonu (Bunu mevcut merge veya sipariş fonksiyonlarının içine ekleyeceğiz)
-    fun updateQuestProgress(type: String, amount: Int) {
-        activeSideQuests.forEach { quest ->
-            if (quest.type == type && quest.currentCount < quest.targetCount) {
-                quest.currentCount += amount
+        val indexInActive = activeSideQuests.indexOf(quest)
+        if (indexInActive != -1) {
+            val nextQuestInPool = sideQuestPool.find { it.type == quest.type && it.level == quest.level + 1 }
+
+            if (nextQuestInPool != null) {
+                // ÖNEMLİ: Yeni göreve geçerken ilerlemeyi (currentCount) sıfırlama!
+                // Binanın gerçek seviyesini koru.
+                activeSideQuests[indexInActive] = nextQuestInPool.copy(
+                    currentCount = quest.currentCount
+                )
+            } else {
+                activeSideQuests.removeAt(indexInActive)
             }
         }
+
+        // Önce yan görevleri kaydet, sonra genel save yap
+
+        save()
+    }
+
+
+
+    fun loadSideQuests() {
+        // Anahtarı "side_quests_v_final" yaparak temiz bir başlangıç yapalım
+        val savedData = sharedPref.getString("side_quests_v_final", null)
+        activeSideQuests.clear()
+
+        if (!savedData.isNullOrEmpty()) {
+            try {
+                val loaded = savedData.split(";").filter { it.isNotBlank() }.mapNotNull { data ->
+                    val p = data.split("|")
+                    if (p.size >= 9) {
+                        SideQuest(
+                            id = p[0].toInt(),
+                            level = p[1].toInt(),
+                            currentCount = p[2].toInt(),
+                            targetCount = p[3].toInt(),
+                            rewardMoney = p[4].toInt(),
+                            rewardDiamonds = p[5].toInt(),
+                            type = p[6],
+                            title = p[7],
+                            description = p[8]
+                        )
+                    } else null
+                }
+                if (loaded.isNotEmpty()) {
+                    activeSideQuests.addAll(loaded)
+                    return // Yükleme başarılı, fonksiyondan çık
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        // Eğer hafıza boşsa veya hata oluştuysa manuel listedeki 1. seviye görevleri ekle
+        setDefaultQuests()
+    }
+
+    private fun setDefaultQuests() {
+        activeSideQuests.clear()
+
+        sideQuestPool.find { it.type == "merge" && it.level == 1 }?.let { activeSideQuests.add(it.copy()) }
+
+        // 2. Bahçe Kulübesi (101) görevini ekle
+        sideQuestPool.find { it.type == "upgrade_101" && it.level == 1 }?.let { activeSideQuests.add(it.copy()) }
+
+        // 3. Çiçek Tarhı (102) görevini ekle
+        sideQuestPool.find { it.type == "upgrade_102" && it.level == 1 }?.let { activeSideQuests.add(it.copy()) }
+    }
+
+    // İlerlemeyi güncelleme fonksiyonunu da buraya ekleyelim (Eksikse)
+    fun updateQuestProgress(type: String, progressValue: Int) {
+        val index = activeSideQuests.indexOfFirst { it.type == type }
+
+        if (index != -1) {
+            val quest = activeSideQuests[index]
+            if (type.startsWith("upgrade")) {
+                // Eğer bina seviyesi hedeften büyükse, hedefte sabitle (tekrar ödül çıkmasın diye)
+                // Ancak claimSideQuest yapıldığında zaten bir sonraki göreve geçecek.
+                activeSideQuests[index] = quest.copy(currentCount = progressValue)
+            } else {
+                val newCount = (quest.currentCount + progressValue).coerceAtMost(quest.targetCount)
+                activeSideQuests[index] = quest.copy(currentCount = newCount)
+            }
+        } else {
+            // Eğer görev listede yoksa (Çiçek Tarhı gibi) havuzdan ekle
+            if (type.startsWith("upgrade")) {
+                val initialQuest = sideQuestPool.find { it.type == type && it.level == 1 }
+                if (initialQuest != null) {
+                    activeSideQuests.add(initialQuest.copy(currentCount = progressValue))
+                }
+            }
+        }
+        save()
     }
 
 
@@ -319,6 +462,11 @@ class MergeGameViewModel(val context: Context, val sharedPref: SharedPreferences
                 }
 
                 updateTaskProgress(TaskType.UPGRADE_BUILDING)
+
+                if (building.id == 101) {
+                    updateQuestProgress("upgrade_101", building.level)
+                }
+                updateQuestProgress("upgrade_${building.id}", building.level)
                 save() // İlerlemeyi kalıcı olarak kaydet
             }
         }
@@ -388,6 +536,13 @@ class MergeGameViewModel(val context: Context, val sharedPref: SharedPreferences
         e.putInt("magnetCount", magnetCount)
         e.putInt("clockCount", clockCount)
 
+
+        // 2. Yan Görevleri de AYNI editor içine ekle (Ayrı fonksiyon çağırma)
+        val questData = activeSideQuests.joinToString(";") { quest ->
+            "${quest.id}|${quest.level}|${quest.currentCount}|${quest.targetCount}|${quest.rewardMoney}|${quest.rewardDiamonds}|${quest.type}|${quest.title}|${quest.description}"
+        }
+        e.putString("side_quests_v_final", questData)
+
         val tasksData = dailyTasks.joinToString("|") { "${it.id}:${it.currentCount}:${it.isClaimed}" }
         e.putString("dailyTasksData", tasksData)
 
@@ -397,7 +552,10 @@ class MergeGameViewModel(val context: Context, val sharedPref: SharedPreferences
         e.putString("buildingsData", bData)
 
         e.putInt("timerSeconds", timerSeconds)
+
+
         e.apply()
+
     }
 
     // Mevcut bonuslara göre olması gereken maksimum süreyi hesaplar
@@ -531,7 +689,8 @@ class MergeGameViewModel(val context: Context, val sharedPref: SharedPreferences
 
         restoreMissingGenerators()
         discoverFirstItemsOfGenerators()
-        checkDailyBonus()
+        // checkDailyBonus() //burayı tekrar aç inittede var
+        loadSideQuests()
     }
     // MergeGameViewModel.kt içine bu fonksiyonu yapıştır:
 
@@ -637,7 +796,7 @@ class MergeGameViewModel(val context: Context, val sharedPref: SharedPreferences
             val targetIdx = cellBoundsRoot.entries.find { it.value.contains(dragPositionRoot) }?.key ?: -1
             if (res.xpGain > 0) {
                 updateTaskProgress(TaskType.MERGE)
-
+                updateQuestProgress("merge", 1)
                 // 1. Ejderhadan gelen şansı al (Örn: %20)
                 val currentReward = petLevelRewards.find { it.level == petLevel } ?: petLevelRewards.last()
                 val petChance = currentReward.diamondChance // Bu değer petLevelRewards listenden gelir
